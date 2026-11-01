@@ -1,0 +1,34 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_docker_image:
+    name: Push Docker image to ECR and Docker Hub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Build and push Docker image
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+        run: |
+          aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 244530008913.dkr.ecr.eu-west-1.amazonaws.com
+          echo $DOCKER_TOKEN | docker login --username $DOCKER_USERNAME --password-stdin
+          rev=$(git rev-parse --short HEAD)
+          docker build . -t wishifai
+          docker tag wishifai 244530008913.dkr.ecr.eu-west-1.amazonaws.com/kandidat42-wishifai:$rev
+          docker tag wishifai 244530008913.dkr.ecr.eu-west-1.amazonaws.com/kandidat42-wishifai:latest
+          docker tag wishifai $DOCKER_USERNAME/wishifai:$rev
+          docker tag wishifai $DOCKER_USERNAME/wishifai:latest
+          docker push 244530008913.dkr.ecr.eu-west-1.amazonaws.com/kandidat42-wishifai:$rev
+          docker push 244530008913.dkr.ecr.eu-west-1.amazonaws.com/kandidat42-wishifai:latest
+          docker push $DOCKER_USERNAME/wishifai:$rev
+          docker push $DOCKER_USERNAME/wishifai:latest
