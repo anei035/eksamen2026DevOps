@@ -32,3 +32,29 @@ jobs:
           docker push 244530008913.dkr.ecr.eu-west-1.amazonaws.com/kandidat42-wishifai:latest
           docker push $DOCKER_USERNAME/wishifai:$rev
           docker push $DOCKER_USERNAME/wishifai:latest
+
+  terraform:
+    name: Terraform
+    needs: build_docker_image
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Format Check
+        working-directory: infra
+        run: terraform fmt -check
+
+      - name: Terraform Apply
+        working-directory: infra
+        run: terraform apply -auto-approve -var="image_tag=$(git rev-parse --short HEAD)"
