@@ -50,4 +50,4 @@ Variabler: `region`, `kandidatnummer` og `image_tag`. URL-en eksponeres som outp
 
 ## Oppgave 2B — Remote state
 
-State lagres i S3-bucketen `pgr301-terraform-state` med nøkkel `wishifai/42/terraform.tfstate`. Se [infra/backend.tf](infra/backend.tf).
+State lagres i den delte S3-bucketen `pgr301-terraform-state` med nøkkel `wishifai/42/terraform.tfstate` (se [infra/backend.tf](infra/backend.tf)). Nøkkelen inneholder prosjektnavn og kandidatnummer, slik at den er unik og ikke overskriver andre kandidaters state i den delte bucketen. `use_lockfile = true` hindrer at to samtidige kjøringer endrer state samtidig.
