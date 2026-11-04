@@ -30,3 +30,24 @@ Workflowen kjører kun ved push til `main`, og publiserer imaget til både ECR (
 - `AWS_SECRET_ACCESS_KEY`
 - `DOCKER_USERNAME`
 - `DOCKER_TOKEN`
+
+## Oppgave 2A — Infrastruktur for tjenesten
+
+- Terraform-kode: [infra/](infra/)
+- Offentlig URL: https://wi-ebffc86512ba4fba8b1c95659d4fd8ef.ecs.eu-west-1.on.aws
+
+Test:
+
+```
+curl -F "image=@samples/sample_image.png" https://wi-ebffc86512ba4fba8b1c95659d4fd8ef.ecs.eu-west-1.on.aws/api/analyze
+```
+
+Terraform-koden oppretter en ECS Express-tjeneste, en S3-bucket for bilder og en task role (`wishifai-task-role-kandidat42`) som gir tjenesten tilgang til Rekognition, Bedrock og S3. Execution role og infrastructure role er de eksisterende rollene i kontoen.
+
+Variabler: `region`, `kandidatnummer` og `image_tag`. URL-en eksponeres som output `service_url`. Miljøvariabelen `S3_BUCKET` settes automatisk fra bucket-ressursen i Terraform.
+
+`container_port` er satt til 8080 og `health_check_path` til `/api/health`, siden standardverdiene (80 og `/`) ikke passer applikasjonen.
+
+## Oppgave 2B — Remote state
+
+State lagres i S3-bucketen `pgr301-terraform-state` med nøkkel `wishifai/42/terraform.tfstate`. Se [infra/backend.tf](infra/backend.tf).
