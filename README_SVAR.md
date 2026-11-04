@@ -51,3 +51,12 @@ Variabler: `region`, `kandidatnummer` og `image_tag`. URL-en eksponeres som outp
 ## Oppgave 2B — Remote state
 
 State lagres i den delte S3-bucketen `pgr301-terraform-state` med nøkkel `wishifai/42/terraform.tfstate` (se [infra/backend.tf](infra/backend.tf)). Nøkkelen inneholder prosjektnavn og kandidatnummer, slik at den er unik og ikke overskriver andre kandidaters state i den delte bucketen. `use_lockfile = true` hindrer at to samtidige kjøringer endrer state samtidig.
+
+## Oppgave 2C — Terraform i GitHub Actions
+
+- Workflow-fil: [.github/workflows/build.yml](.github/workflows/build.yml)
+- Grønn kjøring: https://github.com/anei035/eksamen2026DevOps/actions/runs/41915763850
+
+Workflowen har to jobber. `build_docker_image` bygger og pusher imaget, og `terraform` kjører `terraform init`, `terraform fmt -check` og `terraform apply` mot `infra/`. Terraform-jobben har `needs: build_docker_image` og sender inn commit-SHA som `image_tag`, slik at ECS deployer imaget som nettopp ble bygget. Pipelinen feiler hvis Terraform-koden ikke er riktig formatert.
+
+**Hvorfor Terraform kjører etter container-build:** Terraform peker ECS-tjenesten på et image med en bestemt tag. Hvis Terraform kjører før eller parallelt med bygget, finnes ikke imaget i ECR ennå, og deployet vil feile. Ved å kjøre etter bygget er vi sikre på at imaget finnes, og at hver commit til `main` gir en deploy av akkurat den versjonen av koden.
