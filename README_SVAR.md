@@ -60,3 +60,19 @@ State lagres i den delte S3-bucketen `pgr301-terraform-state` med nøkkel `wishi
 Workflowen har to jobber. `build_docker_image` bygger og pusher imaget, og `terraform` kjører `terraform init`, `terraform fmt -check` og `terraform apply` mot `infra/`. Terraform-jobben har `needs: build_docker_image` og sender inn commit-SHA som `image_tag`, slik at ECS deployer imaget som nettopp ble bygget. Pipelinen feiler hvis Terraform-koden ikke er riktig formatert.
 
 **Hvorfor Terraform kjører etter container-build:** Terraform peker ECS-tjenesten på et image med en bestemt tag. Hvis Terraform kjører før eller parallelt med bygget, finnes ikke imaget i ECR ennå, og deployet vil feile. Ved å kjøre etter bygget er vi sikre på at imaget finnes, og at hver commit til `main` gir en deploy av akkurat den versjonen av koden.
+
+## Oppgave 3A — Metrikker i applikasjonen
+
+Gründeren opplever at tjenesten er treg. For å finne ut hvor tiden blir av, måler jeg de to eksterne kallene hver for seg, i tillegg til én business-metrikk. Alle metrikkene publiseres til CloudWatch under namespace `kandidat42`.
+
+| Metrikk | Type | Hva den måler |
+|---|---|---|
+| `rekognition_latency` | Timer | Tiden Rekognition bruker på å analysere bildet |
+| `bedrock_latency` | Timer | Tiden Bedrock bruker på å generere gaveforslag |
+| `gift_suggestions` | Counter | Antall gaveforslag som er generert (business-metrikk) |
+
+**Hvorfor Timer:** En Timer gir både antall kall, gjennomsnittlig tid og maks tid. Da ser vi ikke bare hvor treg tjenesten er i snitt, men også hvor ille de verste kallene er. Tidsmålingen er gjort med `@Timed` på metodene i `RekognitionService` og `BedrockService`, med `TimedAspect` registrert i `TimedConfig`.
+
+**Hvorfor Counter:** Antall gaveforslag kan bare øke, og en Counter passer derfor best. Metrikken sier noe om hvor mye tjenesten faktisk brukes og hvor mye verdi den leverer, ikke bare om den er teknisk frisk. Det er relevant for gründeren å kunne vise til overfor investorer.
+
+**Funn:** Bedrock-kallet tar i snitt ca. 14,5 sekunder, mens Rekognition tar ca. 1,1 sekunder. Bedrock står for rundt 93 % av responstiden og er hovedårsaken til at tjenesten oppleves som treg.
