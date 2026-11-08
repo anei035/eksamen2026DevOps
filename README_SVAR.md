@@ -64,3 +64,20 @@ rekognition_latency og bedrock_latency er Timere som måler hvor lang tid Rekogn
 gift_suggestions er en Counter som teller antall gaveforslag som blir generert. Jeg valgte denne som business-metrikk fordi gaveforslagene er selve produktet Wishifai leverer. Den viser hvor mye tjenesten faktisk brukes og hvor mye verdi den gir brukerne, noe gründeren kan vise til overfor investorer. Hvis den plutselig stopper opp, vet vi at brukerne ikke får verdi lenger, selv om tjenesten teknisk sett svarer. Jeg brukte Counter fordi antallet bare kan øke.
 
 Resultatet var at Bedrock-kallet i snitt tar rundt 14,5 sekunder, mens Rekognition tar rundt 1,1 sekunder. Bedrock står altså for omtrent 93 % av responstiden og er hovedgrunnen til at tjenesten er treg.
+
+## Oppgave 3B
+
+Dashboardet og alarmen ligger i infra/dashboard.tf og infra/alarm.tf.
+
+Dashboardet heter kandidat42-wishifai og ligger i CloudWatch i eu-west-1.
+
+![Dashboard](media/dashboard.png)
+
+Dashboardet har fire grafer som til sammen gir et bilde av både bruk, ytelse og infrastruktur:
+
+- Antall gaveforslag generert er business-metrikken fra 3A. Den viser hvor mye tjenesten faktisk brukes.
+- Responstid for Bedrock og Rekognition viser de to Timerne fra 3A i samme graf, slik at man med en gang ser at det er Bedrock som tar mest tid.
+- ECS CPU og minnebruk er infrastrukturmetrikker som ECS Express sender automatisk. De viser om tjenesten har nok ressurser, eller om tregheten kan skyldes for lite CPU eller minne.
+- HTTP responstid for /api/analyze kommer fra Spring Boot Actuator og viser den totale tiden brukeren venter på svar.
+
+Alarmen går på bedrock_latency, siden det er Bedrock som står for det meste av responstiden. Den går av hvis gjennomsnittlig tid er over 20 sekunder i to minutter på rad, og sender da e-post via SNS. Bedrock ligger normalt på rundt 15 sekunder, så 20 sekunder betyr at tjenesten er merkbart tregere enn vanlig. At den må være over terskelen i to perioder gjør at én enkelt treg forespørsel ikke utløser alarmen.
