@@ -12,3 +12,7 @@ variable "image_tag" {
   type    = string
   default = "latest"
 }
+variable "alarm_email" {
+  type    = string
+  default = "kandidat42.pgr301@gmail.com"
+}
