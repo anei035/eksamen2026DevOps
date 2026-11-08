@@ -17,7 +17,8 @@ resource "aws_iam_role_policy" "task_policy" {
     Statement = [
       { Effect = "Allow", Action = "rekognition:DetectLabels", Resource = "*" },
       { Effect = "Allow", Action = "bedrock:InvokeModel", Resource = "*" },
-      { Effect = "Allow", Action = "s3:PutObject", Resource = "${aws_s3_bucket.images.arn}/*" }
+      { Effect = "Allow", Action = "s3:PutObject", Resource = "${aws_s3_bucket.images.arn}/*" },
+      { Effect = "Allow", Action = "cloudwatch:PutMetricData", Resource = "*" }
     ]
   })
 }

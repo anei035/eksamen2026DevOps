@@ -8,6 +8,8 @@ import software.amazon.awssdk.services.rekognition.model.DetectLabelsResponse;
 import software.amazon.awssdk.services.rekognition.model.Image;
 import software.amazon.awssdk.services.rekognition.model.Label;
 
+import io.micrometer.core.annotation.Timed;
+
 import java.util.List;
 
 @Service
@@ -18,7 +20,8 @@ public class RekognitionService {
     public RekognitionService(RekognitionClient client) {
         this.client = client;
     }
-
+    
+    @Timed("rekognition_latency")
     public List<String> detectLabels(byte[] bytes) {
         DetectLabelsResponse resp = client.detectLabels(DetectLabelsRequest.builder()
                 .image(Image.builder().bytes(SdkBytes.fromByteArray(bytes)).build())
