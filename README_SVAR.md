@@ -1,78 +1,66 @@
-## Oppgave 1A — Container
+# Besvarelse PGR301 – Kandidat 42
 
-Multi-stage `Dockerfile` ligger i roten av repoet. Første steg bygger applikasjonen med Maven og JDK 21, andre steg kjører kun JAR-filen på et JRE 21-image. Byggeverktøy og kildekode blir dermed ikke med i det endelige imaget.
+## Oppgave 1A
 
-Imaget publiseres til Docker Hub av pipelinen i 1B. For å starte en container som lytter på localhost:9999, kjør følgende kommando med egne AWS-nøkler:
+Dockerfilen ligger i roten av repoet og er en multi-stage build. Det første steget bygger applikasjonen med Maven og JDK 21, og det andre steget kjører bare JAR-filen på et JRE 21-image. Da blir ikke Maven, JDK og kildekoden med i det ferdige imaget.
+
+Imaget blir publisert til Docker Hub av pipelinen i 1B. Containeren kan startes på localhost:9999 med denne kommandoen (bruk egne AWS-nøkler):
 
 ```
 docker run -p 9999:8080 -e AWS_ACCESS_KEY_ID=<access key> -e AWS_SECRET_ACCESS_KEY=<secret key> anei21638/wishifai:latest
 ```
 
-Test:
+Og testes med:
 
 ```
 curl -F "image=@samples/sample_image.png" http://localhost:9999/api/analyze
 ```
-## Oppgave 1B — CI-pipeline
 
-- Workflow-fil: [.github/workflows/build.yml](.github/workflows/build.yml)
-- Grønn kjøring: https://github.com/anei035/eksamen2026DevOps/actions/runs/41339855160
-- ECR: `244530008913.dkr.ecr.eu-west-1.amazonaws.com/kandidat42-wishifai`
-- Docker Hub: `anei21638/wishifai`
+## Oppgave 1B
 
-Workflowen kjører kun ved push til `main`, og publiserer imaget til både ECR (brukes av ECS i oppgave 2) og Docker Hub.
+Workflowen ligger i .github/workflows/build.yml og kjører bare ved push til main. Den bygger imaget og pusher det både til ECR (som brukes av ECS i oppgave 2) og til Docker Hub.
 
-**Tagging-strategi:** Hvert image tagges med kort commit-SHA (f.eks. `50d8f31`) og `latest`. Commit-SHA gjør det mulig å spore nøyaktig hvilken versjon av koden som kjører hvor, og å rulle tilbake til en tidligere versjon. `latest` peker alltid på siste bygg fra `main`, og gjør det enkelt å hente nyeste versjon.
+Grønn kjøring: https://github.com/anei035/eksamen2026DevOps/actions/runs/41339855160
 
-**For sensor:** Legg inn følgende repository secrets i din fork (Settings → Secrets and variables → Actions):
+ECR-repo: 244530008913.dkr.ecr.eu-west-1.amazonaws.com/kandidat42-wishifai
+Docker Hub: anei21638/wishifai
 
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `DOCKER_USERNAME`
-- `DOCKER_TOKEN`
+Jeg tagger hvert image med kort commit-SHA (f.eks. 50d8f31) og latest. Med commit-SHA kan man se nøyaktig hvilken versjon av koden som kjører hvor, og det er lett å rulle tilbake til en tidligere versjon. Latest peker alltid på siste bygg fra main, så det er enkelt å hente nyeste versjon.
 
-## Oppgave 2A — Infrastruktur for tjenesten
+For å kjøre workflowen i en fork må sensor legge inn disse repository secrets under Settings -> Secrets and variables -> Actions: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DOCKER_USERNAME og DOCKER_TOKEN.
 
-- Terraform-kode: [infra/](infra/)
-- Offentlig URL: https://wi-ebffc86512ba4fba8b1c95659d4fd8ef.ecs.eu-west-1.on.aws
+## Oppgave 2A
 
-Test:
+Terraform-koden ligger i infra/. Den lager en ECS Express-tjeneste, en S3-bucket for bildene og en task role (wishifai-task-role-kandidat42) som gir tjenesten tilgang til Rekognition, Bedrock og S3. Execution role og infrastructure role er de eksisterende rollene i kontoen.
+
+Offentlig URL: https://wi-ebffc86512ba4fba8b1c95659d4fd8ef.ecs.eu-west-1.on.aws
 
 ```
 curl -F "image=@samples/sample_image.png" https://wi-ebffc86512ba4fba8b1c95659d4fd8ef.ecs.eu-west-1.on.aws/api/analyze
 ```
 
-Terraform-koden oppretter en ECS Express-tjeneste, en S3-bucket for bilder og en task role (`wishifai-task-role-kandidat42`) som gir tjenesten tilgang til Rekognition, Bedrock og S3. Execution role og infrastructure role er de eksisterende rollene i kontoen.
+Jeg har variabler for region, kandidatnummer og image_tag, og URL-en kommer ut som output service_url. S3_BUCKET settes automatisk i Terraform ut fra bucketen som blir laget.
 
-Variabler: `region`, `kandidatnummer` og `image_tag`. URL-en eksponeres som output `service_url`. Miljøvariabelen `S3_BUCKET` settes automatisk fra bucket-ressursen i Terraform.
+Jeg satte container_port til 8080 og health_check_path til /api/health, fordi standardverdiene (80 og /) ikke passer med applikasjonen.
 
-`container_port` er satt til 8080 og `health_check_path` til `/api/health`, siden standardverdiene (80 og `/`) ikke passer applikasjonen.
+## Oppgave 2B
 
-## Oppgave 2B — Remote state
+State lagres i den delte bucketen pgr301-terraform-state med nøkkelen wishifai/42/terraform.tfstate (se infra/backend.tf). Nøkkelen har med prosjektnavn og kandidatnummer, så den er unik og ikke overskriver state til andre i klassen. Jeg bruker use_lockfile = true slik at to kjøringer ikke kan endre state samtidig.
 
-State lagres i den delte S3-bucketen `pgr301-terraform-state` med nøkkel `wishifai/42/terraform.tfstate` (se [infra/backend.tf](infra/backend.tf)). Nøkkelen inneholder prosjektnavn og kandidatnummer, slik at den er unik og ikke overskriver andre kandidaters state i den delte bucketen. `use_lockfile = true` hindrer at to samtidige kjøringer endrer state samtidig.
+## Oppgave 2C
 
-## Oppgave 2C — Terraform i GitHub Actions
+Terraform-jobben ligger i samme workflow som i 1B, så workflowen har nå to jobber: build_docker_image bygger og pusher imaget, og terraform kjører terraform init, terraform fmt -check og terraform apply mot infra/. Terraform-jobben har needs: build_docker_image, så den starter først når imaget er pushet. Commit-SHA sendes inn som image_tag, slik at ECS deployer imaget som akkurat ble bygget. Pipelinen feiler hvis Terraform-koden ikke er riktig formatert.
 
-- Workflow-fil: [.github/workflows/build.yml](.github/workflows/build.yml)
-- Grønn kjøring: https://github.com/anei035/eksamen2026DevOps/actions/runs/41915763850
+Grønn kjøring: https://github.com/anei035/eksamen2026DevOps/actions/runs/41915763850
 
-Workflowen har to jobber. `build_docker_image` bygger og pusher imaget, og `terraform` kjører `terraform init`, `terraform fmt -check` og `terraform apply` mot `infra/`. Terraform-jobben har `needs: build_docker_image` og sender inn commit-SHA som `image_tag`, slik at ECS deployer imaget som nettopp ble bygget. Pipelinen feiler hvis Terraform-koden ikke er riktig formatert.
+Terraform må kjøre etter container-bygget fordi ECS-tjenesten peker på et image med en bestemt tag. Hvis Terraform kjørte før eller samtidig, ville ikke imaget finnes i ECR ennå, og deployet ville feilet. Når den kjører etterpå, vet vi at imaget finnes, og hver commit til main blir deployet med akkurat den versjonen av koden.
 
-**Hvorfor Terraform kjører etter container-build:** Terraform peker ECS-tjenesten på et image med en bestemt tag. Hvis Terraform kjører før eller parallelt med bygget, finnes ikke imaget i ECR ennå, og deployet vil feile. Ved å kjøre etter bygget er vi sikre på at imaget finnes, og at hver commit til `main` gir en deploy av akkurat den versjonen av koden.
+## Oppgave 3A
 
-## Oppgave 3A — Metrikker i applikasjonen
+Siden gründeren synes tjenesten er treg, måler jeg de to eksterne kallene hver for seg for å se hvor tiden blir av. I tillegg har jeg én business-metrikk. Alle metrikkene sendes til CloudWatch under namespace kandidat42.
 
-Gründeren opplever at tjenesten er treg. For å finne ut hvor tiden blir av, måler jeg de to eksterne kallene hver for seg, i tillegg til én business-metrikk. Alle metrikkene publiseres til CloudWatch under namespace `kandidat42`.
+rekognition_latency og bedrock_latency er Timere som måler hvor lang tid Rekognition og Bedrock bruker. En Timer gir antall kall, gjennomsnittstid og maks tid, så man ser ikke bare snittet, men også hvor trege de verste kallene er. Jeg har brukt @Timed på metodene i RekognitionService og BedrockService, med TimedAspect registrert i TimedConfig.
 
-| Metrikk | Type | Hva den måler |
-|---|---|---|
-| `rekognition_latency` | Timer | Tiden Rekognition bruker på å analysere bildet |
-| `bedrock_latency` | Timer | Tiden Bedrock bruker på å generere gaveforslag |
-| `gift_suggestions` | Counter | Antall gaveforslag som er generert (business-metrikk) |
+gift_suggestions er en Counter som teller antall gaveforslag som blir generert. Jeg valgte denne som business-metrikk fordi gaveforslagene er selve produktet Wishifai leverer. Den viser hvor mye tjenesten faktisk brukes og hvor mye verdi den gir brukerne, noe gründeren kan vise til overfor investorer. Hvis den plutselig stopper opp, vet vi at brukerne ikke får verdi lenger, selv om tjenesten teknisk sett svarer. Jeg brukte Counter fordi antallet bare kan øke.
 
-**Hvorfor Timer:** En Timer gir både antall kall, gjennomsnittlig tid og maks tid. Da ser vi ikke bare hvor treg tjenesten er i snitt, men også hvor ille de verste kallene er. Tidsmålingen er gjort med `@Timed` på metodene i `RekognitionService` og `BedrockService`, med `TimedAspect` registrert i `TimedConfig`.
-
-**Hvorfor Counter:** Antall gaveforslag kan bare øke, og en Counter passer derfor best. Metrikken sier noe om hvor mye tjenesten faktisk brukes og hvor mye verdi den leverer, ikke bare om den er teknisk frisk. Det er relevant for gründeren å kunne vise til overfor investorer.
-
-**Funn:** Bedrock-kallet tar i snitt ca. 14,5 sekunder, mens Rekognition tar ca. 1,1 sekunder. Bedrock står for rundt 93 % av responstiden og er hovedårsaken til at tjenesten oppleves som treg.
+Resultatet var at Bedrock-kallet i snitt tar rundt 14,5 sekunder, mens Rekognition tar rundt 1,1 sekunder. Bedrock står altså for omtrent 93 % av responstiden og er hovedgrunnen til at tjenesten er treg.
