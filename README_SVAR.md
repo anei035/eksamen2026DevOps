@@ -81,3 +81,15 @@ Dashboardet har fire grafer som til sammen gir et bilde av både bruk, ytelse og
 - HTTP responstid for /api/analyze kommer fra Spring Boot Actuator og viser den totale tiden brukeren venter på svar.
 
 Alarmen går på bedrock_latency, siden det er Bedrock som står for det meste av responstiden. Den går av hvis gjennomsnittlig tid er over 20 sekunder i to minutter på rad, og sender da e-post via SNS. Bedrock ligger normalt på rundt 15 sekunder, så 20 sekunder betyr at tjenesten er merkbart tregere enn vanlig. At den må være over terskelen i to perioder gjør at én enkelt treg forespørsel ikke utløser alarmen.
+
+## Oppgave 4
+
+Da jeg testet Wishifai med barnerombildet, fant Rekognition både "Living Room" og "Bedroom" i samme bilde, og modellen svarte at det var en blanding av stue og soverom. Svaret ble til slutt greit, men samme bilde gir ikke nødvendigvis samme svar neste gang. Pipelinen var grønn, health-sjekken svarte og alarmen sto i OK hele tiden. Ingenting av det sier noe om forslagene faktisk er riktige, og det synes jeg er den største forskjellen fra vanlig utvikling.
+
+En vanlig test sjekker at output er lik en forventet verdi, men det går ikke når svaret varierer. Formatet kan fortsatt testes automatisk, for eksempel at svaret er gyldig JSON. Innholdet kan testes med et fast sett bilder, som et barnerom og en garasje, i en egen jobb som deploy-jobben har needs: på. Slike tester fanger bare feilene man selv har tenkt på, og de koster tid og penger hver gang pipelinen kjører. Man får aldri samme trygghet som med vanlige enhetstester.
+
+Det er heller ikke bare koden som endrer oppførselen. Prompten og modellversjonen kan gi helt andre svar selv om ingen kode er endret. Prompten kan versjoneres i Git og gå gjennom samme pipeline som koden, med pull request og statussjekker slik vi satte opp med branch protection. Da får den en commit-SHA og kan rulles tilbake. Modellen er vanskeligere, siden det er leverandøren som oppdaterer og fjerner versjoner. Canary eller feature flags hjelper, men bare hvis man har et signal som sier om den nye versjonen faktisk gir bedre svar.
+
+Alarmen min går hvis Bedrock bruker mer enn 20 sekunder i snitt. Den ville ikke reagert om modellen plutselig foreslo noe farlig for et lite barn, og business-metrikken min ville bare telt det som fem nye gaveforslag. Man kan måle hvor ofte modellen nekter å svare, hvor lange svarene er og tokenbruk, men ingen av disse sier direkte om et svar er riktig. Tilbakemeldinger fra brukere er nok det beste signalet på kvalitet, men de kommer først etter at feilen har skjedd.
+
+Hvor strengt dette må være, avhenger av risikoen. For en gaveliste synes jeg det er greit å oppdage noen feil i produksjon, så lenge man kan rulle tilbake raskt. Et dårlig gaveforslag er irriterende, men det er brukeren som bestemmer om gaven blir kjøpt. I en bank er det annerledes. Der bør endringer i prompt og modell godkjennes av et menneske, og rådgiveren bør se over rådet før kunden får det. Flere sperrer og manuelle godkjenninger øker riktignok lead time og gjør at man deployer sjeldnere, men et feil råd om pensjon eller lån kan ikke rulles tilbake med et eldre image.
