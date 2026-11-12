@@ -31,7 +31,7 @@ For å kjøre workflowen i en fork må sensor legge inn disse repository secrets
 
 ## Oppgave 2A
 
-Terraform-koden ligger i infra/. Den lager en ECS Express-tjeneste, en S3-bucket for bildene og en task role (wishifai-task-role-kandidat42) som gir tjenesten tilgang til Rekognition, Bedrock og S3. Execution role og infrastructure role er de eksisterende rollene i kontoen.
+Terraform-koden ligger i infra/. Den lager en ECS Express-tjeneste, en S3-bucket for bildene og en task role (wishifai-task-role-kandidat42) som gir tjenesten tilgang til Rekognition, Bedrock, S3 og CloudWatch. Execution role og infrastructure role er de eksisterende rollene i kontoen.
 
 Offentlig URL: https://wi-ebffc86512ba4fba8b1c95659d4fd8ef.ecs.eu-west-1.on.aws
 
